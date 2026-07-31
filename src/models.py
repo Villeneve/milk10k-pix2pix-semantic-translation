@@ -14,7 +14,7 @@ class Critic(nn.Module):
             chin = min([init_ch*2**i,max_ch])
             chout = min([init_ch*2**(i+1),max_ch])
             self.conv_blocks.append(ConvBlock(chin,chout,4,2,1))
-        self.toMap = torch.nn.utils.spectral_norm(setXavier_(nn.Conv2d(chout,1,1)))
+        self.toMap = torch.nn.utils.spectral_norm(setXavier_(nn.Conv2d(chout,1,3,1,1,padding_mode='reflect')))
     def forward(self, x:torch.Tensor):
         for layer in self.conv_blocks:
             x = layer(x)
@@ -33,23 +33,23 @@ class Generator(nn.Module):
             nn.InstanceNorm2d(64),
             nn.ReLU(),
             # 64 -> 32 RF=10+(4-1)*4=22 jmp=8
-            setKaiming_(nn.Conv2d(64,128,4,2,1,padding_mode='reflect')),
-            nn.InstanceNorm2d(128),
-            nn.ReLU(),
-            # 32 -> 16 RF=22+(4-1)*8=46 jmp=16
-            setKaiming_(nn.Conv2d(128,256,4,2,1,padding_mode='reflect')),
-            nn.InstanceNorm2d(256),
-            nn.ReLU(),
+            # setKaiming_(nn.Conv2d(64,128,4,2,1,padding_mode='reflect')),
+            # nn.InstanceNorm2d(128),
+            # nn.ReLU(),
+            # # 32 -> 16 RF=22+(4-1)*8=46 jmp=16
+            # setKaiming_(nn.Conv2d(128,256,4,2,1,padding_mode='reflect')),
+            # nn.InstanceNorm2d(256),
+            # nn.ReLU(),
         )
         self.bottleneck = nn.Sequential(
             # 32 -> 32 RF=22+(3-1)*8=38 jmp=8
-            *[RConv2d(256) for _ in range(lenght)]
+            *[RConv2d(64) for _ in range(lenght)]
         )
         self.decoder = nn.Sequential(
-            nn.UpsamplingNearest2d(scale_factor=2),
-            ConvNormBlock(256,128,3,1,1),
-            nn.UpsamplingNearest2d(scale_factor=2),
-            ConvNormBlock(128,64,3,1,1),
+            # nn.UpsamplingNearest2d(scale_factor=2),
+            # ConvNormBlock(256,128,3,1,1),
+            # nn.UpsamplingNearest2d(scale_factor=2),
+            # ConvNormBlock(128,64,3,1,1),
             nn.UpsamplingNearest2d(scale_factor=2),
             ConvNormBlock(64,32,3,1,1),
             nn.UpsamplingNearest2d(scale_factor=2),
