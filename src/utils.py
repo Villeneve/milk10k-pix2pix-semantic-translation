@@ -72,7 +72,10 @@ def plot_sample(model:torch.nn.Module,dataset:torch.utils.data.DataLoader, trans
     plt.close()
     return
 
-
+def setGrad_(model:torch.nn.Module, state:bool) -> None:
+    for p in model.parameters():
+        p.requires_grad_(state)
+    return
 
 if __name__ == '__main__':
     data = Data()

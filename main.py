@@ -1,6 +1,7 @@
 #%%
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from torchinfo import summary
 
@@ -17,7 +18,7 @@ tr = tt.Compose([
     tt.ToDtype(torch.float32,scale=True),
     tt.Normalize([.5]*3,[.5]*3)
 ])
-dataset = load_dataset(64,False,4)
+dataset = load_dataset(64,True,4)
 
 #%%
 gpu = torch.device('cuda:1')
@@ -50,24 +51,34 @@ for epoch in range(5000):
         derm = tr(derm).to(gpu)
         clin = tr(clin).to(gpu)
 
+        setGrad_(crit,True)
         with torch.no_grad():
             fake_clin = gen(derm)
         true_logits = crit(torch.cat([derm,clin],1))
         fake_logits = crit(torch.cat([derm,fake_clin],1))
-        eps_drift = 1e-3*(true_logits**2).mean()
-        adv_loss_c_ = -true_logits.mean() + fake_logits.mean() + eps_drift
+        adv_loss_c_ = F.relu(-true_logits+1).mean() + F.relu(fake_logits+1).mean()
+        if i%16==0:
+            derm_grad = torch.cat([derm,clin],1).clone().requires_grad_(True)
+            grad = torch.autograd.grad(
+                crit(derm_grad).flatten(1).mean(1).sum(),
+                derm_grad,
+                create_graph=True,
+                only_inputs=True,
+            )[0]
+            norm = grad.flatten(1).square().sum(1)
+            adv_loss_c_ += 16*5*norm.mean()
         opt[1].zero_grad()
         adv_loss_c_.backward()
         opt[1].step()
 
-        if i%5==0:
-            fake_clin = gen(derm)
-            fake_logits = crit(torch.cat([derm,fake_clin],1))
-            rec_loss_g_ = (clin-fake_clin).abs().mean()
-            adv_loss_g_ = -fake_logits.mean()
-            opt[0].zero_grad()
-            (rec_loss_g_+adv_loss_g_).backward()
-            opt[0].step()
+        setGrad_(crit,False)
+        fake_clin = gen(derm)
+        fake_logits = crit(torch.cat([derm,fake_clin],1))
+        rec_loss_g_ = 100*(clin-fake_clin).abs().mean()
+        adv_loss_g_ = F.relu(-fake_logits+1).mean()
+        opt[0].zero_grad()
+        (rec_loss_g_+adv_loss_g_).backward()
+        opt[0].step()
 
 
         rec_loss_g = rec_loss_g_.item() if rec_loss_g is None else .98*rec_loss_g+(1-.98)*rec_loss_g_.item()

@@ -31,7 +31,7 @@ class ConvBlock(nn.Module):
     ):
         super().__init__()
         self.block = nn.Sequential(
-            spectral_norm(setKaiming_(nn.Conv2d(inCh,outCh,k_size,stride=stride,padding=padding,padding_mode=padding_mode,**kwargs),.2)),
+            setKaiming_(nn.Conv2d(inCh,outCh,k_size,stride=stride,padding=padding,padding_mode=padding_mode,**kwargs),.2),
             nn.LeakyReLU(.2),
         )
     def forward(self, x:torch.Tensor):
