@@ -24,18 +24,23 @@ class Generator(nn.Module):
     def __init__(self, lenght=5, init_ch=16):
         super().__init__()
         self.encoder = nn.Sequential(
+            #256
             setKaiming_(nn.Conv2d(3,init_ch,4,2,1,padding_mode='reflect')),
             nn.InstanceNorm2d(init_ch),
             nn.ReLU(),
+            #128
             setKaiming_(nn.Conv2d(init_ch,init_ch*2,4,2,1,padding_mode='reflect')),
             nn.InstanceNorm2d(init_ch*2),
             nn.ReLU(),
+            #64
             setKaiming_(nn.Conv2d(init_ch*2,init_ch*4,4,2,1,padding_mode='reflect')),
             nn.InstanceNorm2d(init_ch*4),
             nn.ReLU(),
+            #32
             setKaiming_(nn.Conv2d(init_ch*4,init_ch*8,4,2,1,padding_mode='reflect')),
             nn.InstanceNorm2d(init_ch*8),
             nn.ReLU(),
+            #16
         )
         self.bottleneck = nn.Sequential(
             *[RConv2d(init_ch*8) for _ in range(lenght)]

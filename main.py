@@ -40,6 +40,7 @@ opt = [
 rec_loss_g = None
 adv_loss_g = None
 adv_loss_c = None
+cut_loss = None
 
 #%%
 for epoch in range(5000):
@@ -73,21 +74,30 @@ for epoch in range(5000):
 
         setGrad_(crit,False)
         fake_clin = gen(derm)
+        cut_fake = gen.encoder(fake_clin).flatten(2).permute(0,2,1)
+        cut_fake = F.normalize(cut_fake,2,-1)
+        
+        matrix = (cut_fake@cut_fake.transpose(-1,-2))/0.1
+        cut_loss_ = 0
+        for i in range(fake_clin.size(0)):
+            cut_loss_ += F.cross_entropy(matrix[i],torch.arange(256,device=gpu))/fake_clin.size(0)
         fake_logits = crit(torch.cat([derm,fake_clin],1))
-        rec_loss_g_ = 100*(clin-fake_clin).abs().mean()
-        adv_loss_g_ = F.relu(-fake_logits+1).mean()
+        # rec_loss_g_ = 100*(clin-fake_clin).abs().mean()
+        adv_loss_g_ = -fake_logits.mean()
         opt[0].zero_grad()
-        (rec_loss_g_+adv_loss_g_).backward()
+        (adv_loss_g_+cut_loss_).backward()
         opt[0].step()
 
 
-        rec_loss_g = rec_loss_g_.item() if rec_loss_g is None else .98*rec_loss_g+(1-.98)*rec_loss_g_.item()
+        # rec_loss_g = rec_loss_g_.item() if rec_loss_g is None else .98*rec_loss_g+(1-.98)*rec_loss_g_.item()
         adv_loss_g = adv_loss_g_.item() if adv_loss_g is None else .98*adv_loss_g+(1-.98)*adv_loss_g_.item()
         adv_loss_c = adv_loss_c_.item() if adv_loss_c is None else .98*adv_loss_c+(1-.98)*adv_loss_c_.item()
+        cut_loss = cut_loss_.item() if cut_loss is None else .98*cut_loss+(1-.98)*cut_loss_.item()
         batch_graph.set_postfix({
-            'rec_loss_g':f'{rec_loss_g:.4f}',
+            # 'rec_loss_g':f'{rec_loss_g:.4f}',
             'adv_loss_g':f'{adv_loss_g:.4f}',
-            'adv_loss_c':f'{adv_loss_c:.4f}'
+            'adv_loss_c':f'{adv_loss_c:.4f}',
+            'cut_loss':f'{cut_loss:.4f}'
         })
         batch_graph.set_description(f'Ep: {epoch}')
         # if i==9: break
